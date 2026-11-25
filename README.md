@@ -13,66 +13,70 @@ Put `Il2CppExportOrder.hpp` and `Il2CppResolver.hpp` in includes, then put this 
 #include <thread>
 
 namespace {
-std::once\_flag bootonce;
+std::once_flag bootonce;
 la::ExportResolver exportresolver;
 }
 
 static void startnative() {
-    std::call\_once(bootonce, \[] {
-        std::thread(\[] {
-            \_\_android\_log\_print(ANDROID\_LOG\_INFO, "NativeMod", "Loaded; waiting for libil2cpp");
+    std::call_once(bootonce, [] {
+        std::thread([] {
+            __android_log_print(ANDROID_LOG_INFO, "NativeMod", "Loaded; waiting for libil2cpp");
             BNM::Loading::AllowLateInitHook();
             BNM::Loading::AddOnLoadedEvent(onloaded);
 
-            auto forceload = \[\&](const char\* tag) {
-                BNM::Loading::SetMethodFinder(la::ExportResolver::find, \&exportresolver);
-                auto domain\_get    = (void\*(\*)())      la::ExportResolver::find("il2cpp\_domain\_get",    \&exportresolver);
-                auto thread\_attach = (void\*(\*)(void\*)) la::ExportResolver::find("il2cpp\_thread\_attach", \&exportresolver);
-                auto thread\_detach = (void (\*)(void\*)) la::ExportResolver::find("il2cpp\_thread\_detach", \&exportresolver);
-                void\* thr = nullptr;
-                if (domain\_get \&\& thread\_attach) {
-                    void\* d = domain\_get();
-                    if (d) thr = thread\_attach(d);
+            auto forceload = [&](const char* tag) {
+                BNM::Loading::SetMethodFinder(la::ExportResolver::find, &exportresolver);
+                auto domain_get    = (void*(*)())      la::ExportResolver::find("il2cpp_domain_get",    &exportresolver);
+                auto thread_attach = (void*(*)(void*)) la::ExportResolver::find("il2cpp_thread_attach", &exportresolver);
+                auto thread_detach = (void (*)(void*)) la::ExportResolver::find("il2cpp_thread_detach", &exportresolver);
+                void* thr = nullptr;
+                if (domain_get && thread_attach) {
+                    void* d = domain_get();
+                    if (d) thr = thread_attach(d);
                 }
-                \_\_android\_log\_print(ANDROID\_LOG\_INFO, "NativeMod", "%s; forcing immediate BNM load (il2cpp thread attached=%d)", tag, thr != nullptr);
+                __android_log_print(ANDROID_LOG_INFO, "NativeMod", "%s; forcing immediate BNM load (il2cpp thread attached=%d)", tag, thr != nullptr);
                 BNM::Loading::TrySetupByUsersFinder();
-                if (thr \&\& thread\_detach) thread\_detach(thr);
-                \_\_android\_log\_print(ANDROID\_LOG\_INFO, "NativeMod", "Immediate BNM load returned");
+                if (thr && thread_detach) thread_detach(thr);
+                __android_log_print(ANDROID_LOG_INFO, "NativeMod", "Immediate BNM load returned");
             };
 
             for (int i = 0; i < 120; i++) {
-                void\* handle = dlopen("libil2cpp.so", RTLD\_NOW | RTLD\_NOLOAD);
+                void* handle = dlopen("libil2cpp.so", RTLD_NOW | RTLD_NOLOAD);
                 if (handle) {
-                    if (dlsym(handle, "il2cpp\_init")) {
+                    if (dlsym(handle, "il2cpp_init")) {
                         exportresolver.handle = handle;
                         exportresolver.methods.clear();
-                        \_\_android\_log\_print(ANDROID\_LOG\_INFO, "NativeMod", "libil2cpp has standard exports");
+                        __android_log_print(ANDROID_LOG_INFO, "NativeMod", "libil2cpp has standard exports");
                         forceload("standard exports");
                         return;
                     } else {
                         if (!exportresolver.initialize(handle)) {
-                            \_\_android\_log\_print(ANDROID\_LOG\_ERROR, "NativeMod", "Resolver rejected module: %s", exportresolver.error.c\_str());
+                            __android_log_print(ANDROID_LOG_ERROR, "NativeMod", "Resolver rejected module: %s", exportresolver.error.c_str());
                             return;
                         }
-                        \_\_android\_log\_print(ANDROID\_LOG\_INFO, "NativeMod", "Mapped %zu renamed IL2CPP exports", exportresolver.methods.size());
+                        __android_log_print(ANDROID_LOG_INFO, "NativeMod", "Mapped %zu renamed IL2CPP exports", exportresolver.methods.size());
                         forceload("renamed exports via handle");
                         return;
                     }
                 }
-                if (!handle \&\& exportresolver.initialize\_loaded()) {
-                    \_\_android\_log\_print(ANDROID\_LOG\_INFO, "NativeMod", "Discovered loaded IL2CPP; mapped %zu renamed exports", exportresolver.methods.size());
+                if (!handle && exportresolver.initialize_loaded()) {
+                    __android_log_print(ANDROID_LOG_INFO, "NativeMod", "Discovered loaded IL2CPP; mapped %zu renamed exports", exportresolver.methods.size());
                     forceload("discovered loaded IL2CPP");
                     return;
                 }
-                if (!handle \&\& exportresolver.error != "libil2cpp module not visible to dl\_iterate\_phdr") {
-                    \_\_android\_log\_print(ANDROID\_LOG\_ERROR, "NativeMod", "Loaded module resolver rejected: %s", exportresolver.error.c\_str());
+                if (!handle && exportresolver.error != "libil2cpp module not visible to dl_iterate_phdr") {
+                    __android_log_print(ANDROID_LOG_ERROR, "NativeMod", "Loaded module resolver rejected: %s", exportresolver.error.c_str());
                     return;
                 }
-                std::this\_thread::sleep\_for(std::chrono::milliseconds(500));
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
             }
-            \_\_android\_log\_print(ANDROID\_LOG\_ERROR, "NativeMod", "libil2cpp not available in loader namespace");
+            __android_log_print(ANDROID_LOG_ERROR, "NativeMod", "libil2cpp not available in loader namespace");
         }).detach();
     });
+}
+
+__attribute__((constructor)) static void nativeentry() {
+    startnative();
 }
 
 \_\_attribute\_\_((constructor)) static void nativeentry() {
