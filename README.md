@@ -1,5 +1,5 @@
 # Auto IL2CPP Resolver for BNM
-
+# credits to xreno papi and ai
 Put `Il2CppExportOrder.hpp` and `Il2CppResolver.hpp` in includes, then put this at the top of `native-lib.cpp` above your `onloaded()` thing
 
 ```cpp
