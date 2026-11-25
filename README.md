@@ -78,10 +78,6 @@ static void startnative() {
 __attribute__((constructor)) static void nativeentry() {
     startnative();
 }
-
-\_\_attribute\_\_((constructor)) static void nativeentry() {
-    startnative();
-}
 ```
 Also credits to ai and I have no fuggin clue if this readme actually will work or not but eh idgaf
 
